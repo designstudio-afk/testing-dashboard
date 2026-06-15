@@ -26,72 +26,6 @@ const IMAGE_KEYS = ['images1','images2','images3','images4','images5','images6',
 
 type ImageKey = typeof IMAGE_KEYS[number];
 
-function FileSlot({
-  label,
-  existing,
-  file,
-  onFile,
-  onClear,
-}: {
-  label: string;
-  existing?: string | null;
-  file: File | null;
-  onFile: (f: File) => void;
-  onClear: () => void;
-}) {
-  const ref = useRef<HTMLInputElement>(null);
-  const [err, setErr] = useState('');
-
-  const handle = (f: File) => {
-    setErr('');
-    if (f.size > MAX_SIZE) { setErr('Max 2 MB'); return; }
-    onFile(f);
-  };
-
-  const preview = file ? URL.createObjectURL(file) : existing ?? null;
-
-  return (
-    <div className="relative group">
-      <input
-        ref={ref}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) handle(f); }}
-      />
-      {preview ? (
-        <div
-          onClick={() => ref.current?.click()}
-          className="relative cursor-pointer rounded-lg overflow-hidden bg-slate-800 border border-slate-700 hover:border-blue-500/50 transition-colors"
-          style={{ aspectRatio: '4/3' }}
-        >
-          <img src={preview} alt={label} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <Upload size={14} className="text-white" />
-          </div>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onClear(); }}
-            className="absolute top-1 right-1 p-0.5 bg-red-500/80 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <Trash2 size={10} />
-          </button>
-        </div>
-      ) : (
-        <div
-          onClick={() => ref.current?.click()}
-          className="cursor-pointer rounded-lg border-2 border-dashed border-slate-700 hover:border-blue-500/40 transition-colors flex flex-col items-center justify-center gap-1 bg-slate-800/50"
-          style={{ aspectRatio: '4/3' }}
-        >
-          <Plus size={14} className="text-slate-500" />
-          <span className="text-slate-600 text-xs">{label}</span>
-          <span className="text-slate-700 text-xs">Max 2 MB</span>
-        </div>
-      )}
-      {err && <p className="text-red-400 text-xs mt-0.5">{err}</p>}
-    </div>
-  );
-}
 
 export default function ProjectModal({ item, onClose, onSaved, onDelete }: ProjectModalProps) {
   const { token } = useAuth();
@@ -168,12 +102,95 @@ export default function ProjectModal({ item, onClose, onSaved, onDelete }: Proje
     }
   }, [item]);
 
-  const handleCoverFile = (f: File) => {
-    setCoverErr('');
-    if (f.size > MAX_SIZE) { setCoverErr('Max 2 MB'); return; }
-    setCoverFile(f);
-    setCoverPreview(URL.createObjectURL(f));
+  
+function FileSlot({
+  label,
+  existing,
+  file,
+  onFile,
+  onClear,
+}: {
+  label: string;
+  existing?: string | null;
+  file: File | null;
+  onFile: (f: File) => void;
+  onClear: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [err, setErr] = useState('');
+
+  const handle = async (f: File) => {
+    setErr('');
+
+    const webp = await convertToWebP(f);
+
+    // optional
+    // if (webp.size > MAX_SIZE) {
+    //   setErr('Max 2 MB');
+    //   return;
+    // }
+
+    onFile(webp);
   };
+
+  const preview = file ? URL.createObjectURL(file) : existing ?? null;
+
+  return (
+    <div className="relative group">
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handle(f); }}
+      />
+      {preview ? (
+        <div
+          onClick={() => ref.current?.click()}
+          className="relative cursor-pointer rounded-lg overflow-hidden bg-slate-800 border border-slate-700 hover:border-blue-500/50 transition-colors"
+          style={{ aspectRatio: '4/3' }}
+        >
+          <img src={preview} alt={label} className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <Upload size={14} className="text-white" />
+          </div>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            className="absolute top-1 right-1 p-0.5 bg-red-500/80 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <Trash2 size={10} />
+          </button>
+        </div>
+      ) : (
+        <div
+          onClick={() => ref.current?.click()}
+          className="cursor-pointer rounded-lg border-2 border-dashed border-slate-700 hover:border-blue-500/40 transition-colors flex flex-col items-center justify-center gap-1 bg-slate-800/50"
+          style={{ aspectRatio: '4/3' }}
+        >
+          <Plus size={14} className="text-slate-500" />
+          <span className="text-slate-600 text-xs">{label}</span>
+        </div>
+      )}
+      {err && <p className="text-red-400 text-xs mt-0.5">{err}</p>}
+    </div>
+  );
+}
+
+const handleCoverFile = async (f: File) => {
+  setCoverErr('');
+
+  const webp = await convertToWebP(f);
+
+  // optional
+  // if (webp.size > MAX_SIZE) {
+  //   setCoverErr('Max 2 MB');
+  //   return;
+  // }
+
+  setCoverFile(webp);
+  setCoverPreview(URL.createObjectURL(webp));
+};
 
   const toggleSubCat = (id: string) => {
     setSubCategoryId((prev) => (prev === id ? '' : id));
@@ -191,6 +208,54 @@ export default function ProjectModal({ item, onClose, onSaved, onDelete }: Proje
       setDeleteLoading(false);
     }
   };
+
+const convertToWebP = (
+  file: File,
+  quality = 0.8
+): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas not supported"));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Failed to convert image"));
+            return;
+          }
+
+          const webpFile = new File(
+            [blob],
+            file.name.replace(/\.[^.]+$/, ".webp"),
+            {
+              type: "image/webp",
+              lastModified: Date.now(),
+            }
+          );
+
+          resolve(webpFile);
+        },
+        "image/webp",
+        quality
+      );
+    };
+
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+};
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -388,7 +453,6 @@ export default function ProjectModal({ item, onClose, onSaved, onDelete }: Proje
               >
                 <ImageIcon size={24} className="text-slate-500" />
                 <p className="text-slate-500 text-sm">Click to upload cover</p>
-                <p className="text-slate-600 text-xs">Max 2 MB</p>
               </div>
             )}
             {coverErr && <p className="text-red-400 text-xs mt-1">{coverErr}</p>}

@@ -77,15 +77,67 @@ export default function NewsModal({ item, onClose, onSubmit }: NewsModalProps) {
     }
   }, [item]);
 
-  const handleFile = (file: File) => {
-    setFileError('');
-    if (file.size > MAX_SIZE) {
-      setFileError('Image must be smaller than 2 MB');
+  const convertToWebP = (file: File, quality = 0.8): Promise<File> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas not supported"));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error("Failed to convert image"));
+            return;
+          }
+
+          const webpFile = new File(
+            [blob],
+            file.name.replace(/\.[^/.]+$/, ".webp"),
+            {
+              type: "image/webp",
+            }
+          );
+
+          resolve(webpFile);
+        },
+        "image/webp",
+        quality
+      );
+    };
+
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+};
+
+const handleFile = async (file: File) => {
+  try {
+    setFileError("");
+
+    const webpFile = await convertToWebP(file, 0.8);
+
+    if (webpFile.size > MAX_SIZE) {
+      setFileError("Image must be smaller than 2 MB");
       return;
     }
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-  };
+
+    setImageFile(webpFile);
+    setImagePreview(URL.createObjectURL(webpFile));
+  } catch {
+    setFileError("Failed to process image");
+  }
+};
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -171,7 +223,6 @@ export default function NewsModal({ item, onClose, onSubmit }: NewsModalProps) {
                 <div className="rounded-lg border-2 border-dashed border-slate-700 group-hover:border-blue-500 transition-colors h-28 flex flex-col items-center justify-center gap-2 bg-slate-800/50">
                   <ImageIcon size={22} className="text-slate-500" />
                   <p className="text-slate-500 text-xs">Click or drag to upload</p>
-                  <p className="text-slate-600 text-xs">Max 2 MB</p>
                 </div>
               )}
             </div>
